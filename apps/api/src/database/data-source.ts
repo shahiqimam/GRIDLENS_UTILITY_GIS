@@ -7,12 +7,14 @@ import { NetworkSegment } from "../network/network-segment.entity";
 import { ServiceArea } from "../network/service-area.entity";
 import { Substation } from "../network/substation.entity";
 import { Transformer } from "../network/transformer.entity";
+import { FaultRuleConfig } from "../rules/fault-rule-config.entity";
 import { TelemetryDevice } from "../telemetry/telemetry-device.entity";
 import { TelemetryReading } from "../telemetry/telemetry-reading.entity";
 import { User } from "../users/user.entity";
 import { InitialUsersAndPostgis1726400000000 } from "./migrations/1726400000000-initial-users-and-postgis";
 import { NetworkModelAndSeed1726400100000 } from "./migrations/1726400100000-network-model-and-seed";
 import { TelemetryModelAndSeed1726400200000 } from "./migrations/1726400200000-telemetry-model-and-seed";
+import { FaultRuleConfigSeed1726400300000 } from "./migrations/1726400300000-fault-rule-config-seed";
 
 config({ path: "../../.env" });
 config();
@@ -29,7 +31,12 @@ export default new DataSource({
   database: process.env.DATABASE_NAME ?? "gridlens",
   username: process.env.DATABASE_USER ?? "gridlens",
   password: process.env.DATABASE_PASSWORD ?? "gridlens_dev_password",
-  entities: [User, Substation, NetworkNode, Feeder, NetworkSegment, Transformer, ServiceArea, TelemetryDevice, TelemetryReading],
-  migrations: [InitialUsersAndPostgis1726400000000, NetworkModelAndSeed1726400100000, TelemetryModelAndSeed1726400200000],
+  entities: [User, Substation, NetworkNode, Feeder, NetworkSegment, Transformer, ServiceArea, TelemetryDevice, TelemetryReading, FaultRuleConfig],
+  migrations: [
+    InitialUsersAndPostgis1726400000000,
+    NetworkModelAndSeed1726400100000,
+    TelemetryModelAndSeed1726400200000,
+    FaultRuleConfigSeed1726400300000
+  ],
   synchronize: false
 });

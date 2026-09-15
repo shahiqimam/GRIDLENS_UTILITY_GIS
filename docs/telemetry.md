@@ -28,3 +28,8 @@ The API now has a protected POST /api/v1/telemetry/ingest endpoint using X-Inges
 
 The simulator now generates deterministic normal telemetry using a seeded random generator and submits events through the public ingest API. It does not connect to or write directly into PostgreSQL.
 
+
+## Fault Rule Configuration Slice
+
+Fault detection thresholds are now database-backed through ault_rule_configs. Seeded defaults include feeder voltage loss below 1.0 kV for 3 consecutive readings, feeder heartbeat timeout after 60 seconds, and transformer overtemperature warning/critical thresholds at 85/95 degrees.
+

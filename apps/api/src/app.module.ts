@@ -13,6 +13,8 @@ import { NetworkModule } from "./network/network.module";
 import { ServiceArea } from "./network/service-area.entity";
 import { Substation } from "./network/substation.entity";
 import { Transformer } from "./network/transformer.entity";
+import { FaultRuleConfig } from "./rules/fault-rule-config.entity";
+import { RulesModule } from "./rules/rules.module";
 import { TelemetryDevice } from "./telemetry/telemetry-device.entity";
 import { TelemetryReading } from "./telemetry/telemetry-reading.entity";
 import { TelemetryModule } from "./telemetry/telemetry.module";
@@ -44,7 +46,8 @@ import { User } from "./users/user.entity";
           Transformer,
           ServiceArea,
           TelemetryDevice,
-          TelemetryReading
+          TelemetryReading,
+          FaultRuleConfig
         ],
         migrations: ["dist/database/migrations/*.js"],
         synchronize: false,
@@ -55,7 +58,8 @@ import { User } from "./users/user.entity";
     AuthModule,
     NetworkModule,
     MapModule,
-    TelemetryModule
+    TelemetryModule,
+    RulesModule
   ]
 })
 export class AppModule {}
