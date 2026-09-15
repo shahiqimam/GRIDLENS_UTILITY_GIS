@@ -5,6 +5,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuthModule } from "./auth/auth.module";
 import { configuration, AppConfig } from "./config/configuration";
 import { HealthModule } from "./health/health.module";
+import { MapModule } from "./map/map.module";
 import { Feeder } from "./network/feeder.entity";
 import { NetworkNode } from "./network/network-node.entity";
 import { NetworkSegment } from "./network/network-segment.entity";
@@ -39,7 +40,8 @@ import { User } from "./users/user.entity";
     }),
     HealthModule,
     AuthModule,
-    NetworkModule
+    NetworkModule,
+    MapModule
   ]
 })
 export class AppModule {}
