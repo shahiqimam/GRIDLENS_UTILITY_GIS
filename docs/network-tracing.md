@@ -13,3 +13,8 @@ The traversal must:
 - Store incident impact snapshots so historical incidents are not changed by later topology edits
 
 Later versions may use recursive SQL CTEs or pgRouting, but the initial implementation should stay explainable and testable in TypeScript.
+
+## Implemented Trace Slice
+
+The API now exposes GET /api/v1/network/feeders/:feederId/trace. The first implementation loads feeder segments and nodes, builds an adjacency list, performs BFS, tracks visited nodes to avoid cycles, stops at open switches, and returns affected node, segment, transformer, service-area, and estimated-customer counts.
+

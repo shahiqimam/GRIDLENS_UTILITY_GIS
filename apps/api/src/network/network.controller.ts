@@ -1,8 +1,8 @@
-import { Controller, Get, UseGuards } from "@nestjs/common";
+import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { NetworkService } from "./network.service";
-import { FeederOverview, NetworkSummary } from "./network.types";
+import { DownstreamTraceResult, FeederOverview, NetworkSummary } from "./network.types";
 
 @ApiTags("network")
 @ApiBearerAuth()
@@ -21,5 +21,14 @@ export class NetworkController {
   @ApiOkResponse({ description: "Synthetic feeder overview list" })
   listFeeders(): Promise<FeederOverview[]> {
     return this.networkService.listFeeders();
+  }
+
+  @Get("feeders/:feederId/trace")
+  @ApiOkResponse({ description: "Downstream trace from a feeder source or provided start node" })
+  traceFeeder(
+    @Param("feederId") feederId: string,
+    @Query("startNodeId") startNodeId?: string
+  ): Promise<DownstreamTraceResult> {
+    return this.networkService.traceFeeder(feederId, startNodeId);
   }
 }
