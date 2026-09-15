@@ -23,3 +23,8 @@ Ingestion requirements:
 
 The API now has a protected POST /api/v1/telemetry/ingest endpoint using X-Ingest-Key. The first telemetry migration seeds devices for the synthetic substation, feeders, and transformers. Duplicate sourceEventId values are accepted as no-op responses before new readings are written.
 
+
+## Simulator Slice
+
+The simulator now generates deterministic normal telemetry using a seeded random generator and submits events through the public ingest API. It does not connect to or write directly into PostgreSQL.
+
