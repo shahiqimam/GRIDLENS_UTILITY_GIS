@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/index.ts",
-    "lint": "echo \"No simulator lint config yet\"",
+    "lint": "eslint .",
     "test": "echo \"No simulator tests yet\"",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
