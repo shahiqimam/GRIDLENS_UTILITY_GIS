@@ -13,6 +13,9 @@ import { NetworkModule } from "./network/network.module";
 import { ServiceArea } from "./network/service-area.entity";
 import { Substation } from "./network/substation.entity";
 import { Transformer } from "./network/transformer.entity";
+import { TelemetryDevice } from "./telemetry/telemetry-device.entity";
+import { TelemetryReading } from "./telemetry/telemetry-reading.entity";
+import { TelemetryModule } from "./telemetry/telemetry.module";
 import { User } from "./users/user.entity";
 
 @Module({
@@ -32,7 +35,17 @@ import { User } from "./users/user.entity";
         database: configService.get("database.name", { infer: true }),
         username: configService.get("database.user", { infer: true }),
         password: configService.get("database.password", { infer: true }),
-        entities: [User, Substation, NetworkNode, Feeder, NetworkSegment, Transformer, ServiceArea],
+        entities: [
+          User,
+          Substation,
+          NetworkNode,
+          Feeder,
+          NetworkSegment,
+          Transformer,
+          ServiceArea,
+          TelemetryDevice,
+          TelemetryReading
+        ],
         migrations: ["dist/database/migrations/*.js"],
         synchronize: false,
         autoLoadEntities: true
@@ -41,7 +54,8 @@ import { User } from "./users/user.entity";
     HealthModule,
     AuthModule,
     NetworkModule,
-    MapModule
+    MapModule,
+    TelemetryModule
   ]
 })
 export class AppModule {}
