@@ -167,3 +167,14 @@ export function dispatchIncident(token: string, incidentId: string): Promise<Wor
 export function getIncidentImpact(token: string, incidentId: string): Promise<IncidentImpact> {
   return request<IncidentImpact>(`/incidents/${incidentId}/impact`, token);
 }
+export function markWorkOrderEnRoute(token: string, id: string): Promise<WorkOrder> {
+  return request<WorkOrder>(`/dispatch/work-orders/${id}/en-route`, token, { method: "POST" });
+}
+
+export function markWorkOrderOnSite(token: string, id: string): Promise<WorkOrder> {
+  return request<WorkOrder>(`/dispatch/work-orders/${id}/on-site`, token, { method: "POST" });
+}
+
+export function completeWorkOrder(token: string, id: string): Promise<WorkOrder> {
+  return request<WorkOrder>(`/dispatch/work-orders/${id}/complete`, token, { method: "POST" });
+}

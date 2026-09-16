@@ -18,6 +18,7 @@ import {
   OpenIncident,
   WorkOrder,
   acknowledgeIncident,
+  completeWorkOrder,
   dispatchIncident,
   getActiveFaults,
   getCrews,
@@ -28,7 +29,9 @@ import {
   getOpenIncidents,
   getOpenWorkOrders,
   resolveIncident,
-  login
+  login,
+  markWorkOrderEnRoute,
+  markWorkOrderOnSite
 } from "../lib/api";
 
 const loginSchema = z.object({
@@ -179,6 +182,23 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const segmentsQuery = useQuery({ queryKey: ["map", "segments"], queryFn: () => getMapLayer(token, "segments") });
   const transformersQuery = useQuery({ queryKey: ["map", "transformers"], queryFn: () => getMapLayer(token, "transformers") });
   const serviceAreasQuery = useQuery({ queryKey: ["map", "service-areas"], queryFn: () => getMapLayer(token, "service-areas") });
+  const workOrderActionMutation = useMutation({
+    mutationFn: ({ id, action }: { id: string; action: "en-route" | "on-site" | "complete" }) => {
+      if (action === "en-route") {
+        return markWorkOrderEnRoute(token, id);
+      }
+      if (action === "on-site") {
+        return markWorkOrderOnSite(token, id);
+      }
+      return completeWorkOrder(token, id);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["crews"] }),
+        queryClient.invalidateQueries({ queryKey: ["open-work-orders"] })
+      ]);
+    }
+  });
   const dispatchMutation = useMutation({
     mutationFn: (incidentId: string) => dispatchIncident(token, incidentId),
     onSuccess: async () => {
@@ -242,7 +262,12 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
           onDispatch={(id) => dispatchMutation.mutate(id)}
           onResolve={(id) => incidentActionMutation.mutate({ id, action: "resolve" })}
         />
-        <DispatchPanel crews={crewsQuery.data ?? []} workOrders={openWorkOrdersQuery.data ?? []} />
+        <DispatchPanel
+          crews={crewsQuery.data ?? []}
+          isActing={workOrderActionMutation.isPending}
+          onAdvance={(id, action) => workOrderActionMutation.mutate({ id, action })}
+          workOrders={openWorkOrdersQuery.data ?? []}
+        />
       </aside>
       <section className="flex min-h-screen flex-col">
         <header className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
@@ -286,7 +311,17 @@ function SummaryPanel({ summary }: { summary?: NetworkSummary }) {
 
 
 
-function DispatchPanel({ crews, workOrders }: { crews: Crew[]; workOrders: WorkOrder[] }) {
+function DispatchPanel({
+  crews,
+  isActing,
+  onAdvance,
+  workOrders
+}: {
+  crews: Crew[];
+  isActing: boolean;
+  onAdvance: (id: string, action: "en-route" | "on-site" | "complete") => void;
+  workOrders: WorkOrder[];
+}) {
   return (
     <section className="mt-6">
       <div className="flex items-center justify-between gap-2 text-sm font-semibold text-zinc-200">
@@ -318,11 +353,46 @@ function DispatchPanel({ crews, workOrders }: { crews: Crew[]; workOrders: WorkO
                 <span className="text-xs text-cyan-300">{workOrder.status}</span>
               </div>
               <p className="mt-1 text-xs text-zinc-400"><Route className="mr-1 inline" size={13} />{workOrder.crewCode ?? workOrder.crewId}</p>
+              <NextStepButton isActing={isActing} onAdvance={onAdvance} workOrder={workOrder} />
             </div>
           ))
         )}
       </div>
     </section>
+  );
+}
+
+function NextStepButton({
+  isActing,
+  onAdvance,
+  workOrder
+}: {
+  isActing: boolean;
+  onAdvance: (id: string, action: "en-route" | "on-site" | "complete") => void;
+  workOrder: WorkOrder;
+}) {
+  const next =
+    workOrder.status === "ASSIGNED"
+      ? { action: "en-route" as const, label: "En route" }
+      : workOrder.status === "EN_ROUTE"
+        ? { action: "on-site" as const, label: "On site" }
+        : workOrder.status === "ON_SITE"
+          ? { action: "complete" as const, label: "Complete" }
+          : null;
+
+  if (!next) {
+    return null;
+  }
+
+  return (
+    <button
+      className="mt-3 border border-cyan-400/60 px-2 py-1 text-xs text-cyan-100 hover:bg-cyan-400/10 disabled:opacity-50"
+      disabled={isActing}
+      onClick={() => onAdvance(workOrder.id, next.action)}
+      type="button"
+    >
+      {next.label}
+    </button>
   );
 }
 function IncidentPanel({
