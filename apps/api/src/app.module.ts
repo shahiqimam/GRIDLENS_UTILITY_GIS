@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { AnalyticsModule } from "./analytics/analytics.module";
 import { AuthModule } from "./auth/auth.module";
 import { configuration, AppConfig } from "./config/configuration";
 import { Crew } from "./dispatch/crew.entity";
@@ -71,7 +72,8 @@ import { User } from "./users/user.entity";
     TelemetryModule,
     RulesModule,
     IncidentsModule,
-    DispatchModule
+    DispatchModule,
+    AnalyticsModule
   ]
 })
 export class AppModule {}
