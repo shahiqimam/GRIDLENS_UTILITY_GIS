@@ -46,6 +46,31 @@ export type OpenIncident = {
   resolvedAt: string | null;
   metadata: Record<string, unknown>;
 };
+
+export type Crew = {
+  id: string;
+  code: string;
+  name: string;
+  specialty: string;
+  status: string;
+  homeBase: string;
+  currentLatitude: number;
+  currentLongitude: number;
+  shiftEndsAt: string;
+};
+
+export type WorkOrder = {
+  id: string;
+  workOrderNumber: string;
+  incidentId: string;
+  crewId: string;
+  crewCode?: string;
+  status: string;
+  summary: string;
+  assignedAt: string;
+  completedAt: string | null;
+  metadata: Record<string, unknown>;
+};
 export type ActiveFault = {
   id: string;
   fingerprint: string;
@@ -109,4 +134,15 @@ export function acknowledgeIncident(token: string, id: string): Promise<OpenInci
 
 export function resolveIncident(token: string, id: string): Promise<OpenIncident> {
   return request<OpenIncident>(`/incidents/${id}/resolve`, token, { method: "POST" });
+}
+export function getCrews(token: string): Promise<Crew[]> {
+  return request<Crew[]>("/dispatch/crews", token);
+}
+
+export function getOpenWorkOrders(token: string): Promise<WorkOrder[]> {
+  return request<WorkOrder[]>("/dispatch/work-orders/open", token);
+}
+
+export function dispatchIncident(token: string, incidentId: string): Promise<WorkOrder> {
+  return request<WorkOrder>(`/dispatch/incidents/${incidentId}/work-orders`, token, { method: "POST" });
 }

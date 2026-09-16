@@ -3,23 +3,28 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, AlertTriangle, Layers, LogIn, MapPinned, RadioTower, ShieldAlert, UsersRound, Zap, type LucideIcon } from "lucide-react";
+import { Activity, AlertTriangle, Layers, LogIn, MapPinned, RadioTower, Route, ShieldAlert, Truck, UsersRound, Zap, type LucideIcon } from "lucide-react";
 import maplibregl, { Map as MapLibreMap } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import {
   ActiveFault,
+  Crew,
   FeederOverview,
   GeoJsonFeatureCollection,
   NetworkSummary,
   OpenIncident,
+  WorkOrder,
   acknowledgeIncident,
+  dispatchIncident,
   getActiveFaults,
+  getCrews,
   getFeeders,
   getMapLayer,
   getNetworkSummary,
   getOpenIncidents,
+  getOpenWorkOrders,
   resolveIncident,
   login
 } from "../lib/api";
@@ -137,6 +142,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const queryClient = useQueryClient();
   const summaryQuery = useQuery({ queryKey: ["network-summary"], queryFn: () => getNetworkSummary(token) });
   const feedersQuery = useQuery({ queryKey: ["feeders"], queryFn: () => getFeeders(token) });
+  const crewsQuery = useQuery({ queryKey: ["crews"], queryFn: () => getCrews(token) });
   const activeFaultsQuery = useQuery({
     queryKey: ["active-faults"],
     queryFn: () => getActiveFaults(token),
@@ -147,17 +153,32 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     queryFn: () => getOpenIncidents(token),
     refetchInterval: 10000
   });
+  const openWorkOrdersQuery = useQuery({
+    queryKey: ["open-work-orders"],
+    queryFn: () => getOpenWorkOrders(token),
+    refetchInterval: 10000
+  });
   const substationsQuery = useQuery({ queryKey: ["map", "substations"], queryFn: () => getMapLayer(token, "substations") });
   const segmentsQuery = useQuery({ queryKey: ["map", "segments"], queryFn: () => getMapLayer(token, "segments") });
   const transformersQuery = useQuery({ queryKey: ["map", "transformers"], queryFn: () => getMapLayer(token, "transformers") });
   const serviceAreasQuery = useQuery({ queryKey: ["map", "service-areas"], queryFn: () => getMapLayer(token, "service-areas") });
+  const dispatchMutation = useMutation({
+    mutationFn: (incidentId: string) => dispatchIncident(token, incidentId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["crews"] }),
+        queryClient.invalidateQueries({ queryKey: ["open-work-orders"] })
+      ]);
+    }
+  });
   const incidentActionMutation = useMutation({
     mutationFn: ({ id, action }: { id: string; action: "acknowledge" | "resolve" }) =>
       action === "acknowledge" ? acknowledgeIncident(token, id) : resolveIncident(token, id),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["open-incidents"] }),
-        queryClient.invalidateQueries({ queryKey: ["active-faults"] })
+        queryClient.invalidateQueries({ queryKey: ["active-faults"] }),
+        queryClient.invalidateQueries({ queryKey: ["open-work-orders"] })
       ]);
     }
   });
@@ -188,11 +209,14 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
         <FeederPanel feeders={feedersQuery.data ?? []} />
         <FaultPanel faults={activeFaultsQuery.data ?? []} />
         <IncidentPanel
+          dispatchedIncidentIds={new Set((openWorkOrdersQuery.data ?? []).map((workOrder) => workOrder.incidentId))}
           incidents={openIncidentsQuery.data ?? []}
-          isActing={incidentActionMutation.isPending}
+          isActing={incidentActionMutation.isPending || dispatchMutation.isPending}
           onAcknowledge={(id) => incidentActionMutation.mutate({ id, action: "acknowledge" })}
+          onDispatch={(id) => dispatchMutation.mutate(id)}
           onResolve={(id) => incidentActionMutation.mutate({ id, action: "resolve" })}
         />
+        <DispatchPanel crews={crewsQuery.data ?? []} workOrders={openWorkOrdersQuery.data ?? []} />
       </aside>
       <section className="flex min-h-screen flex-col">
         <header className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
@@ -235,15 +259,59 @@ function SummaryPanel({ summary }: { summary?: NetworkSummary }) {
 
 
 
+
+function DispatchPanel({ crews, workOrders }: { crews: Crew[]; workOrders: WorkOrder[] }) {
+  return (
+    <section className="mt-6">
+      <div className="flex items-center justify-between gap-2 text-sm font-semibold text-zinc-200">
+        <span className="flex items-center gap-2">
+          <Truck size={18} className="text-cyan-300" />
+          Dispatch
+        </span>
+        <span className="text-xs text-zinc-500">{workOrders.length} orders</span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {crews.map((crew) => (
+          <div className="border border-zinc-800 bg-zinc-900 p-3" key={crew.id}>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-zinc-200">{crew.code}</p>
+              <span className={crew.status === "AVAILABLE" ? "text-xs text-emerald-300" : "text-xs text-zinc-500"}>{crew.status}</span>
+            </div>
+            <p className="mt-1 text-xs text-zinc-500">{crew.specialty}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 space-y-2">
+        {workOrders.length === 0 ? (
+          <div className="border border-zinc-800 bg-zinc-900 p-3 text-sm text-zinc-400">No active work orders</div>
+        ) : (
+          workOrders.map((workOrder) => (
+            <div className="border border-cyan-500/40 bg-cyan-950/20 p-3" key={workOrder.id}>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-cyan-100">{workOrder.workOrderNumber}</p>
+                <span className="text-xs text-cyan-300">{workOrder.status}</span>
+              </div>
+              <p className="mt-1 text-xs text-zinc-400"><Route className="mr-1 inline" size={13} />{workOrder.crewCode ?? workOrder.crewId}</p>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
 function IncidentPanel({
+  dispatchedIncidentIds,
   incidents,
   isActing,
   onAcknowledge,
+  onDispatch,
   onResolve
 }: {
+  dispatchedIncidentIds: Set<string>;
   incidents: OpenIncident[];
   isActing: boolean;
   onAcknowledge: (id: string) => void;
+  onDispatch: (id: string) => void;
   onResolve: (id: string) => void;
 }) {
   return (
@@ -278,6 +346,14 @@ function IncidentPanel({
                     Ack
                   </button>
                 ) : null}
+                <button
+                  className="border border-cyan-400/60 px-2 py-1 text-xs text-cyan-100 hover:bg-cyan-400/10 disabled:opacity-50"
+                  disabled={isActing || dispatchedIncidentIds.has(incident.id)}
+                  onClick={() => onDispatch(incident.id)}
+                  type="button"
+                >
+                  {dispatchedIncidentIds.has(incident.id) ? "Dispatched" : "Dispatch"}
+                </button>
                 <button
                   className="border border-zinc-600 px-2 py-1 text-xs text-zinc-200 hover:border-rose-300 disabled:opacity-50"
                   disabled={isActing}
