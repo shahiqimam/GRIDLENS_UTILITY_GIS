@@ -12,6 +12,7 @@ import {
   ActiveFault,
   Crew,
   FeederOverview,
+  IncidentImpact,
   GeoJsonFeatureCollection,
   NetworkSummary,
   OpenIncident,
@@ -21,6 +22,7 @@ import {
   getActiveFaults,
   getCrews,
   getFeeders,
+  getIncidentImpact,
   getMapLayer,
   getNetworkSummary,
   getOpenIncidents,
@@ -153,6 +155,15 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     queryFn: () => getOpenIncidents(token),
     refetchInterval: 10000
   });
+  const incidentImpactsQuery = useQuery({
+    enabled: Boolean(openIncidentsQuery.data?.length),
+    queryKey: ["incident-impacts", openIncidentsQuery.data?.map((incident) => incident.id).join(",")],
+    queryFn: async () => {
+      const impacts = await Promise.all((openIncidentsQuery.data ?? []).map((incident) => getIncidentImpact(token, incident.id)));
+      return new Map(impacts.map((impact) => [impact.incidentId, impact]));
+    },
+    refetchInterval: 10000
+  });
   const openWorkOrdersQuery = useQuery({
     queryKey: ["open-work-orders"],
     queryFn: () => getOpenWorkOrders(token),
@@ -210,6 +221,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
         <FaultPanel faults={activeFaultsQuery.data ?? []} />
         <IncidentPanel
           dispatchedIncidentIds={new Set((openWorkOrdersQuery.data ?? []).map((workOrder) => workOrder.incidentId))}
+          impacts={incidentImpactsQuery.data ?? new Map<string, IncidentImpact>()}
           incidents={openIncidentsQuery.data ?? []}
           isActing={incidentActionMutation.isPending || dispatchMutation.isPending}
           onAcknowledge={(id) => incidentActionMutation.mutate({ id, action: "acknowledge" })}
@@ -301,6 +313,7 @@ function DispatchPanel({ crews, workOrders }: { crews: Crew[]; workOrders: WorkO
 }
 function IncidentPanel({
   dispatchedIncidentIds,
+  impacts,
   incidents,
   isActing,
   onAcknowledge,
@@ -308,6 +321,7 @@ function IncidentPanel({
   onResolve
 }: {
   dispatchedIncidentIds: Set<string>;
+  impacts: Map<string, IncidentImpact>;
   incidents: OpenIncident[];
   isActing: boolean;
   onAcknowledge: (id: string) => void;
@@ -327,44 +341,59 @@ function IncidentPanel({
         {incidents.length === 0 ? (
           <div className="border border-zinc-800 bg-zinc-900 p-3 text-sm text-zinc-400">No open incidents</div>
         ) : (
-          incidents.map((incident) => (
-            <div className="border border-rose-500/50 bg-rose-950/20 p-3" key={incident.id}>
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-medium text-rose-100">{incident.incidentNumber}</p>
-                <span className="text-xs text-rose-300">{incident.priority}</span>
-              </div>
-              <p className="mt-1 text-sm text-zinc-300">{incident.title}</p>
-              <p className="mt-1 text-xs text-zinc-500">{incident.status} · opened {new Date(incident.openedAt).toLocaleString()}</p>
-              <div className="mt-3 flex gap-2">
-                {incident.status === "OPEN" ? (
+          incidents.map((incident) => {
+            const impact = impacts.get(incident.id);
+            return (
+              <div className="border border-rose-500/50 bg-rose-950/20 p-3" key={incident.id}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-rose-100">{incident.incidentNumber}</p>
+                  <span className="text-xs text-rose-300">{incident.priority}</span>
+                </div>
+                <p className="mt-1 text-sm text-zinc-300">{incident.title}</p>
+                <p className="mt-1 text-xs text-zinc-500">{incident.status} · opened {new Date(incident.openedAt).toLocaleString()}</p>
+                {impact ? (
+                  <div className="mt-3 grid grid-cols-2 gap-2 border border-rose-500/20 bg-zinc-950/40 p-2 text-xs">
+                    <span className="text-zinc-500">Customers</span>
+                    <span className="text-right text-rose-100">{impact.affected.estimatedCustomers}</span>
+                    <span className="text-zinc-500">Transformers</span>
+                    <span className="text-right text-zinc-300">{impact.affected.transformers}</span>
+                    <span className="text-zinc-500">Service areas</span>
+                    <span className="text-right text-zinc-300">{impact.affected.serviceAreas}</span>
+                    <span className="text-zinc-500">Segments</span>
+                    <span className="text-right text-zinc-300">{impact.affected.segments}</span>
+                  </div>
+                ) : null}
+                <div className="mt-3 flex gap-2">
+                  {incident.status === "OPEN" ? (
+                    <button
+                      className="border border-rose-400/60 px-2 py-1 text-xs text-rose-100 hover:bg-rose-400/10 disabled:opacity-50"
+                      disabled={isActing}
+                      onClick={() => onAcknowledge(incident.id)}
+                      type="button"
+                    >
+                      Ack
+                    </button>
+                  ) : null}
                   <button
-                    className="border border-rose-400/60 px-2 py-1 text-xs text-rose-100 hover:bg-rose-400/10 disabled:opacity-50"
-                    disabled={isActing}
-                    onClick={() => onAcknowledge(incident.id)}
+                    className="border border-cyan-400/60 px-2 py-1 text-xs text-cyan-100 hover:bg-cyan-400/10 disabled:opacity-50"
+                    disabled={isActing || dispatchedIncidentIds.has(incident.id)}
+                    onClick={() => onDispatch(incident.id)}
                     type="button"
                   >
-                    Ack
+                    {dispatchedIncidentIds.has(incident.id) ? "Dispatched" : "Dispatch"}
                   </button>
-                ) : null}
-                <button
-                  className="border border-cyan-400/60 px-2 py-1 text-xs text-cyan-100 hover:bg-cyan-400/10 disabled:opacity-50"
-                  disabled={isActing || dispatchedIncidentIds.has(incident.id)}
-                  onClick={() => onDispatch(incident.id)}
-                  type="button"
-                >
-                  {dispatchedIncidentIds.has(incident.id) ? "Dispatched" : "Dispatch"}
-                </button>
-                <button
-                  className="border border-zinc-600 px-2 py-1 text-xs text-zinc-200 hover:border-rose-300 disabled:opacity-50"
-                  disabled={isActing}
-                  onClick={() => onResolve(incident.id)}
-                  type="button"
-                >
-                  Resolve
-                </button>
+                  <button
+                    className="border border-zinc-600 px-2 py-1 text-xs text-zinc-200 hover:border-rose-300 disabled:opacity-50"
+                    disabled={isActing}
+                    onClick={() => onResolve(incident.id)}
+                    type="button"
+                  >
+                    Resolve
+                  </button>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </section>

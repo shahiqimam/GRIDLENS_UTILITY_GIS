@@ -47,6 +47,24 @@ export type OpenIncident = {
   metadata: Record<string, unknown>;
 };
 
+
+export type IncidentImpact = {
+  incidentId: string;
+  incidentNumber: string;
+  feederId: string | null;
+  affected: {
+    nodes: number;
+    segments: number;
+    transformers: number;
+    serviceAreas: number;
+    estimatedCustomers: number;
+  };
+  nodeIds: string[];
+  segmentIds: string[];
+  transformerIds: string[];
+  serviceAreaIds: string[];
+  stoppedAtOpenSwitchNodeIds: string[];
+};
 export type Crew = {
   id: string;
   code: string;
@@ -145,4 +163,7 @@ export function getOpenWorkOrders(token: string): Promise<WorkOrder[]> {
 
 export function dispatchIncident(token: string, incidentId: string): Promise<WorkOrder> {
   return request<WorkOrder>(`/dispatch/incidents/${incidentId}/work-orders`, token, { method: "POST" });
+}
+export function getIncidentImpact(token: string, incidentId: string): Promise<IncidentImpact> {
+  return request<IncidentImpact>(`/incidents/${incidentId}/impact`, token);
 }
