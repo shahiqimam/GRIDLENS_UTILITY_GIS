@@ -8,3 +8,8 @@ export type FaultRuleConfigView = {
   consecutiveCount: number | null;
   timeoutSeconds: number | null;
 };
+
+export type FaultEvaluationResult = {
+  faultDetected: boolean;
+  fingerprint?: string;
+};

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository } from "typeorm";
+import { RulesService } from "../rules/rules.service";
 import { TelemetryIngestDto } from "./dto/telemetry-ingest.dto";
 import { TelemetryDevice } from "./telemetry-device.entity";
 import { TelemetryReading } from "./telemetry-reading.entity";
@@ -12,7 +13,8 @@ export class TelemetryService {
   constructor(
     private readonly dataSource: DataSource,
     @InjectRepository(TelemetryDevice) private readonly devices: Repository<TelemetryDevice>,
-    @InjectRepository(TelemetryReading) private readonly readings: Repository<TelemetryReading>
+    @InjectRepository(TelemetryReading) private readonly readings: Repository<TelemetryReading>,
+    private readonly rulesService: RulesService
   ) {}
 
   async ingest(dto: TelemetryIngestDto): Promise<TelemetryIngestResult> {
@@ -51,6 +53,8 @@ export class TelemetryService {
       await manager.save(TelemetryReading, readingEntities);
       await manager.update(TelemetryDevice, { id: device.id }, { lastSeenAt: recordedAt });
     });
+
+    await this.rulesService.evaluateTelemetry(device, recordedAt);
 
     return { accepted: true, duplicate: false, readingsCreated: dto.metrics.length };
   }

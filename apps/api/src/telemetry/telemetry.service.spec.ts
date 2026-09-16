@@ -40,7 +40,8 @@ describe("TelemetryService", () => {
     } as unknown as DataSource;
     const devices = { findOne: jest.fn().mockResolvedValue(activeDevice) };
     const readings = { exist: jest.fn().mockResolvedValue(false) };
-    const service = new TelemetryService(dataSource, devices as never, readings as never);
+    const rulesService = { evaluateTelemetry: jest.fn().mockResolvedValue({ faultDetected: false }) };
+    const service = new TelemetryService(dataSource, devices as never, readings as never, rulesService as never);
 
     await expect(service.ingest(ingestDto)).resolves.toEqual({
       accepted: true,
@@ -49,13 +50,15 @@ describe("TelemetryService", () => {
     });
     expect(manager.save).toHaveBeenCalledWith(expect.any(Function), expect.arrayContaining([expect.objectContaining({ sourceEventId: "sim-evt-0001" })]));
     expect(manager.update).toHaveBeenCalledWith(expect.any(Function), { id: "device-1" }, { lastSeenAt: new Date("2026-09-15T12:00:00.000Z") });
+    expect(rulesService.evaluateTelemetry).toHaveBeenCalledWith(activeDevice, new Date("2026-09-15T12:00:00.000Z"));
   });
 
   it("accepts duplicate source events as no-ops", async () => {
     const dataSource = { transaction: jest.fn() } as unknown as DataSource;
     const devices = { findOne: jest.fn().mockResolvedValue(activeDevice) };
     const readings = { exist: jest.fn().mockResolvedValue(true) };
-    const service = new TelemetryService(dataSource, devices as never, readings as never);
+    const rulesService = { evaluateTelemetry: jest.fn().mockResolvedValue({ faultDetected: false }) };
+    const service = new TelemetryService(dataSource, devices as never, readings as never, rulesService as never);
 
     await expect(service.ingest(ingestDto)).resolves.toEqual({
       accepted: true,
@@ -69,9 +72,11 @@ describe("TelemetryService", () => {
     const dataSource = { transaction: jest.fn() } as unknown as DataSource;
     const devices = { findOne: jest.fn().mockResolvedValue(null) };
     const readings = { exist: jest.fn() };
-    const service = new TelemetryService(dataSource, devices as never, readings as never);
+    const rulesService = { evaluateTelemetry: jest.fn().mockResolvedValue({ faultDetected: false }) };
+    const service = new TelemetryService(dataSource, devices as never, readings as never, rulesService as never);
 
     await expect(service.ingest(ingestDto)).rejects.toThrow(NotFoundException);
     expect(readings.exist).not.toHaveBeenCalled();
   });
 });
+

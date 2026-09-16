@@ -13,6 +13,7 @@ import { NetworkModule } from "./network/network.module";
 import { ServiceArea } from "./network/service-area.entity";
 import { Substation } from "./network/substation.entity";
 import { Transformer } from "./network/transformer.entity";
+import { DetectedFault } from "./rules/detected-fault.entity";
 import { FaultRuleConfig } from "./rules/fault-rule-config.entity";
 import { RulesModule } from "./rules/rules.module";
 import { TelemetryDevice } from "./telemetry/telemetry-device.entity";
@@ -47,7 +48,8 @@ import { User } from "./users/user.entity";
           ServiceArea,
           TelemetryDevice,
           TelemetryReading,
-          FaultRuleConfig
+          FaultRuleConfig,
+          DetectedFault
         ],
         migrations: ["dist/database/migrations/*.js"],
         synchronize: false,
