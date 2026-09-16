@@ -2,7 +2,7 @@
 
 import "maplibre-gl/dist/maplibre-gl.css";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, AlertTriangle, Layers, LogIn, MapPinned, RadioTower, ShieldAlert, UsersRound, Zap, type LucideIcon } from "lucide-react";
 import maplibregl, { Map as MapLibreMap } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -14,11 +14,13 @@ import {
   GeoJsonFeatureCollection,
   NetworkSummary,
   OpenIncident,
+  acknowledgeIncident,
   getActiveFaults,
   getFeeders,
   getMapLayer,
   getNetworkSummary,
   getOpenIncidents,
+  resolveIncident,
   login
 } from "../lib/api";
 
@@ -132,6 +134,7 @@ function LoginPanel({ onLogin }: { onLogin: (session: Session) => void }) {
 
 function Dashboard({ session, onLogout }: { session: Session; onLogout: () => void }) {
   const token = session.accessToken;
+  const queryClient = useQueryClient();
   const summaryQuery = useQuery({ queryKey: ["network-summary"], queryFn: () => getNetworkSummary(token) });
   const feedersQuery = useQuery({ queryKey: ["feeders"], queryFn: () => getFeeders(token) });
   const activeFaultsQuery = useQuery({
@@ -148,6 +151,16 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const segmentsQuery = useQuery({ queryKey: ["map", "segments"], queryFn: () => getMapLayer(token, "segments") });
   const transformersQuery = useQuery({ queryKey: ["map", "transformers"], queryFn: () => getMapLayer(token, "transformers") });
   const serviceAreasQuery = useQuery({ queryKey: ["map", "service-areas"], queryFn: () => getMapLayer(token, "service-areas") });
+  const incidentActionMutation = useMutation({
+    mutationFn: ({ id, action }: { id: string; action: "acknowledge" | "resolve" }) =>
+      action === "acknowledge" ? acknowledgeIncident(token, id) : resolveIncident(token, id),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["open-incidents"] }),
+        queryClient.invalidateQueries({ queryKey: ["active-faults"] })
+      ]);
+    }
+  });
 
   const layers = useMemo(
     () => ({
@@ -174,7 +187,12 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
         <SummaryPanel summary={summaryQuery.data} />
         <FeederPanel feeders={feedersQuery.data ?? []} />
         <FaultPanel faults={activeFaultsQuery.data ?? []} />
-        <IncidentPanel incidents={openIncidentsQuery.data ?? []} />
+        <IncidentPanel
+          incidents={openIncidentsQuery.data ?? []}
+          isActing={incidentActionMutation.isPending}
+          onAcknowledge={(id) => incidentActionMutation.mutate({ id, action: "acknowledge" })}
+          onResolve={(id) => incidentActionMutation.mutate({ id, action: "resolve" })}
+        />
       </aside>
       <section className="flex min-h-screen flex-col">
         <header className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
@@ -217,7 +235,17 @@ function SummaryPanel({ summary }: { summary?: NetworkSummary }) {
 
 
 
-function IncidentPanel({ incidents }: { incidents: OpenIncident[] }) {
+function IncidentPanel({
+  incidents,
+  isActing,
+  onAcknowledge,
+  onResolve
+}: {
+  incidents: OpenIncident[];
+  isActing: boolean;
+  onAcknowledge: (id: string) => void;
+  onResolve: (id: string) => void;
+}) {
   return (
     <section className="mt-6">
       <div className="flex items-center justify-between gap-2 text-sm font-semibold text-zinc-200">
@@ -239,6 +267,26 @@ function IncidentPanel({ incidents }: { incidents: OpenIncident[] }) {
               </div>
               <p className="mt-1 text-sm text-zinc-300">{incident.title}</p>
               <p className="mt-1 text-xs text-zinc-500">{incident.status} · opened {new Date(incident.openedAt).toLocaleString()}</p>
+              <div className="mt-3 flex gap-2">
+                {incident.status === "OPEN" ? (
+                  <button
+                    className="border border-rose-400/60 px-2 py-1 text-xs text-rose-100 hover:bg-rose-400/10 disabled:opacity-50"
+                    disabled={isActing}
+                    onClick={() => onAcknowledge(incident.id)}
+                    type="button"
+                  >
+                    Ack
+                  </button>
+                ) : null}
+                <button
+                  className="border border-zinc-600 px-2 py-1 text-xs text-zinc-200 hover:border-rose-300 disabled:opacity-50"
+                  disabled={isActing}
+                  onClick={() => onResolve(incident.id)}
+                  type="button"
+                >
+                  Resolve
+                </button>
+              </div>
             </div>
           ))
         )}

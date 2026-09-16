@@ -103,3 +103,10 @@ export function getActiveFaults(token: string): Promise<ActiveFault[]> {
 export function getOpenIncidents(token: string): Promise<OpenIncident[]> {
   return request<OpenIncident[]>("/incidents/open", token);
 }
+export function acknowledgeIncident(token: string, id: string): Promise<OpenIncident> {
+  return request<OpenIncident>(`/incidents/${id}/acknowledge`, token, { method: "POST" });
+}
+
+export function resolveIncident(token: string, id: string): Promise<OpenIncident> {
+  return request<OpenIncident>(`/incidents/${id}/resolve`, token, { method: "POST" });
+}
