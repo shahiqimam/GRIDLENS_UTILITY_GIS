@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { LessThanOrEqual, Repository } from "typeorm";
+import { IncidentsService } from "../incidents/incidents.service";
 import { TelemetryDevice } from "../telemetry/telemetry-device.entity";
 import { TelemetryReading } from "../telemetry/telemetry-reading.entity";
 import { TelemetryAssetType, TelemetryMetric } from "../telemetry/telemetry.enums";
@@ -14,7 +15,8 @@ export class RulesService {
   constructor(
     @InjectRepository(FaultRuleConfig) private readonly ruleConfigs: Repository<FaultRuleConfig>,
     @InjectRepository(DetectedFault) private readonly detectedFaults: Repository<DetectedFault>,
-    @InjectRepository(TelemetryReading) private readonly telemetryReadings: Repository<TelemetryReading>
+    @InjectRepository(TelemetryReading) private readonly telemetryReadings: Repository<TelemetryReading>,
+    private readonly incidentsService: IncidentsService
   ) {}
 
   async listConfigs(): Promise<FaultRuleConfigView[]> {
@@ -113,20 +115,20 @@ export class RulesService {
       return { faultDetected: true, fingerprint };
     }
 
-    await this.detectedFaults.save(
-      this.detectedFaults.create({
-        fingerprint,
-        faultType: FaultRuleType.FeederVoltageLoss,
-        assetType: device.assetType,
-        assetId: device.assetId,
-        feederId: device.assetId,
-        severity: DetectedFaultSeverity.Critical,
-        status: DetectedFaultStatus.Active,
-        firstDetectedAt: recordedAt,
-        lastDetectedAt: recordedAt,
-        evidence
-      })
-    );
+    const fault = this.detectedFaults.create({
+      fingerprint,
+      faultType: FaultRuleType.FeederVoltageLoss,
+      assetType: device.assetType,
+      assetId: device.assetId,
+      feederId: device.assetId,
+      severity: DetectedFaultSeverity.Critical,
+      status: DetectedFaultStatus.Active,
+      firstDetectedAt: recordedAt,
+      lastDetectedAt: recordedAt,
+      evidence
+    });
+    await this.detectedFaults.save(fault);
+    await this.incidentsService.openForFault(fault);
 
     return { faultDetected: true, fingerprint };
   }

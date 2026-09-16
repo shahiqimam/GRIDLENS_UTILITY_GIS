@@ -5,6 +5,8 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuthModule } from "./auth/auth.module";
 import { configuration, AppConfig } from "./config/configuration";
 import { HealthModule } from "./health/health.module";
+import { Incident } from "./incidents/incident.entity";
+import { IncidentsModule } from "./incidents/incidents.module";
 import { MapModule } from "./map/map.module";
 import { Feeder } from "./network/feeder.entity";
 import { NetworkNode } from "./network/network-node.entity";
@@ -49,7 +51,8 @@ import { User } from "./users/user.entity";
           TelemetryDevice,
           TelemetryReading,
           FaultRuleConfig,
-          DetectedFault
+          DetectedFault,
+          Incident
         ],
         migrations: ["dist/database/migrations/*.js"],
         synchronize: false,
@@ -61,7 +64,8 @@ import { User } from "./users/user.entity";
     NetworkModule,
     MapModule,
     TelemetryModule,
-    RulesModule
+    RulesModule,
+    IncidentsModule
   ]
 })
 export class AppModule {}

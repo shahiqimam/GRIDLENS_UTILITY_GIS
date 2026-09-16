@@ -17,7 +17,11 @@ const feederDevice = {
   updatedAt: new Date("2026-09-15T00:00:00.000Z")
 };
 
+const incidentsService = { openForFault: jest.fn().mockResolvedValue({ id: "incident-1" }) };
+
 describe("RulesService", () => {
+  beforeEach(() => incidentsService.openForFault.mockClear());
+
   it("returns normalized rule configuration views", async () => {
     const service = new RulesService(
       makeRepository({
@@ -35,7 +39,8 @@ describe("RulesService", () => {
         ])
       }) as never,
       makeRepository({}) as never,
-      makeRepository({}) as never
+      makeRepository({}) as never,
+      incidentsService as never
     );
 
     await expect(service.listConfigs()).resolves.toEqual([
@@ -52,7 +57,7 @@ describe("RulesService", () => {
     ]);
   });
 
-  it("creates an active feeder voltage-loss fault after consecutive low readings", async () => {
+  it("creates an active feeder voltage-loss fault and opens an incident after consecutive low readings", async () => {
     const save = jest.fn().mockResolvedValue(undefined);
     const create = jest.fn((value: unknown) => value);
     const service = new RulesService(
@@ -72,7 +77,8 @@ describe("RulesService", () => {
           { id: "r2", metric: TelemetryMetric.Voltage, numericValue: "0.8000", recordedAt: new Date("2026-09-15T12:01:00.000Z") },
           { id: "r1", metric: TelemetryMetric.Voltage, numericValue: "0.9000", recordedAt: new Date("2026-09-15T12:00:00.000Z") }
         ])
-      }) as never
+      }) as never,
+      incidentsService as never
     );
 
     await expect(service.evaluateTelemetry(feederDevice, new Date("2026-09-15T12:02:00.000Z"))).resolves.toEqual({
@@ -83,6 +89,7 @@ describe("RulesService", () => {
       fingerprint: "FEEDER_VOLTAGE_LOSS:FEEDER:feeder-1",
       feederId: "feeder-1"
     }));
+    expect(incidentsService.openForFault).toHaveBeenCalledWith(expect.objectContaining({ fingerprint: "FEEDER_VOLTAGE_LOSS:FEEDER:feeder-1" }));
   });
 
   it("does not detect feeder voltage loss until every required reading is below threshold", async () => {
@@ -103,15 +110,17 @@ describe("RulesService", () => {
           { id: "r2", metric: TelemetryMetric.Voltage, numericValue: "13.8000", recordedAt: new Date("2026-09-15T12:01:00.000Z") },
           { id: "r1", metric: TelemetryMetric.Voltage, numericValue: "0.9000", recordedAt: new Date("2026-09-15T12:00:00.000Z") }
         ])
-      }) as never
+      }) as never,
+      incidentsService as never
     );
 
     await expect(service.evaluateTelemetry(feederDevice, new Date("2026-09-15T12:02:00.000Z"))).resolves.toEqual({
       faultDetected: false
     });
+    expect(incidentsService.openForFault).not.toHaveBeenCalled();
   });
 
-  it("updates an existing active fault instead of creating a duplicate", async () => {
+  it("updates an existing active fault instead of creating a duplicate incident", async () => {
     const update = jest.fn().mockResolvedValue(undefined);
     const service = new RulesService(
       makeRepository({
@@ -124,11 +133,13 @@ describe("RulesService", () => {
           { id: "r2", numericValue: "0.8000", recordedAt: new Date("2026-09-15T12:01:00.000Z") },
           { id: "r1", numericValue: "0.9000", recordedAt: new Date("2026-09-15T12:00:00.000Z") }
         ])
-      }) as never
+      }) as never,
+      incidentsService as never
     );
 
     await service.evaluateTelemetry(feederDevice, new Date("2026-09-15T12:02:00.000Z"));
 
     expect(update).toHaveBeenCalledWith({ id: "fault-1" }, expect.objectContaining({ lastDetectedAt: new Date("2026-09-15T12:02:00.000Z") }));
+    expect(incidentsService.openForFault).not.toHaveBeenCalled();
   });
 });
