@@ -1,6 +1,8 @@
 import "reflect-metadata";
 import { config } from "dotenv";
 import { DataSource } from "typeorm";
+import { Crew } from "../dispatch/crew.entity";
+import { WorkOrder } from "../dispatch/work-order.entity";
 import { Incident } from "../incidents/incident.entity";
 import { Feeder } from "../network/feeder.entity";
 import { NetworkNode } from "../network/network-node.entity";
@@ -19,6 +21,7 @@ import { TelemetryModelAndSeed1726400200000 } from "./migrations/1726400200000-t
 import { FaultRuleConfigSeed1726400300000 } from "./migrations/1726400300000-fault-rule-config-seed";
 import { DetectedFaults1726400400000 } from "./migrations/1726400400000-detected-faults";
 import { Incidents1726400500000 } from "./migrations/1726400500000-incidents";
+import { Dispatch1726400600000 } from "./migrations/1726400600000-dispatch";
 
 config({ path: "../../.env" });
 config();
@@ -35,14 +38,15 @@ export default new DataSource({
   database: process.env.DATABASE_NAME ?? "gridlens",
   username: process.env.DATABASE_USER ?? "gridlens",
   password: process.env.DATABASE_PASSWORD ?? "gridlens_dev_password",
-  entities: [User, Substation, NetworkNode, Feeder, NetworkSegment, Transformer, ServiceArea, TelemetryDevice, TelemetryReading, FaultRuleConfig, DetectedFault, Incident],
+  entities: [User, Substation, NetworkNode, Feeder, NetworkSegment, Transformer, ServiceArea, TelemetryDevice, TelemetryReading, FaultRuleConfig, DetectedFault, Incident, Crew, WorkOrder],
   migrations: [
     InitialUsersAndPostgis1726400000000,
     NetworkModelAndSeed1726400100000,
     TelemetryModelAndSeed1726400200000,
     FaultRuleConfigSeed1726400300000,
     DetectedFaults1726400400000,
-    Incidents1726400500000
+    Incidents1726400500000,
+    Dispatch1726400600000
   ],
   synchronize: false
 });

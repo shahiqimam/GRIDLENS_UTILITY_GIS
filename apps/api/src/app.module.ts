@@ -4,6 +4,9 @@ import { ThrottlerModule } from "@nestjs/throttler";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuthModule } from "./auth/auth.module";
 import { configuration, AppConfig } from "./config/configuration";
+import { Crew } from "./dispatch/crew.entity";
+import { DispatchModule } from "./dispatch/dispatch.module";
+import { WorkOrder } from "./dispatch/work-order.entity";
 import { HealthModule } from "./health/health.module";
 import { Incident } from "./incidents/incident.entity";
 import { IncidentsModule } from "./incidents/incidents.module";
@@ -52,7 +55,9 @@ import { User } from "./users/user.entity";
           TelemetryReading,
           FaultRuleConfig,
           DetectedFault,
-          Incident
+          Incident,
+          Crew,
+          WorkOrder
         ],
         migrations: ["dist/database/migrations/*.js"],
         synchronize: false,
@@ -65,7 +70,8 @@ import { User } from "./users/user.entity";
     MapModule,
     TelemetryModule,
     RulesModule,
-    IncidentsModule
+    IncidentsModule,
+    DispatchModule
   ]
 })
 export class AppModule {}
