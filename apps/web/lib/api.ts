@@ -30,6 +30,22 @@ export type FeederOverview = {
 };
 
 export type GeoJsonFeatureCollection = GeoJSON.FeatureCollection<GeoJSON.Geometry, Record<string, unknown>>;
+
+export type OpenIncident = {
+  id: string;
+  incidentNumber: string;
+  title: string;
+  description: string | null;
+  source: string;
+  sourceFaultId: string | null;
+  feederId: string | null;
+  priority: string;
+  status: string;
+  openedAt: string;
+  acknowledgedAt: string | null;
+  resolvedAt: string | null;
+  metadata: Record<string, unknown>;
+};
 export type ActiveFault = {
   id: string;
   fingerprint: string;
@@ -83,4 +99,7 @@ export function getMapLayer(token: string, layer: "substations" | "segments" | "
 }
 export function getActiveFaults(token: string): Promise<ActiveFault[]> {
   return request<ActiveFault[]>("/rules/faults/active", token);
+}
+export function getOpenIncidents(token: string): Promise<OpenIncident[]> {
+  return request<OpenIncident[]>("/incidents/open", token);
 }

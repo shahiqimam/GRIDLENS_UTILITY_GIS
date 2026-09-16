@@ -3,7 +3,7 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, AlertTriangle, Layers, LogIn, MapPinned, RadioTower, UsersRound, Zap, type LucideIcon } from "lucide-react";
+import { Activity, AlertTriangle, Layers, LogIn, MapPinned, RadioTower, ShieldAlert, UsersRound, Zap, type LucideIcon } from "lucide-react";
 import maplibregl, { Map as MapLibreMap } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -13,10 +13,12 @@ import {
   FeederOverview,
   GeoJsonFeatureCollection,
   NetworkSummary,
+  OpenIncident,
   getActiveFaults,
   getFeeders,
   getMapLayer,
   getNetworkSummary,
+  getOpenIncidents,
   login
 } from "../lib/api";
 
@@ -137,6 +139,11 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     queryFn: () => getActiveFaults(token),
     refetchInterval: 10000
   });
+  const openIncidentsQuery = useQuery({
+    queryKey: ["open-incidents"],
+    queryFn: () => getOpenIncidents(token),
+    refetchInterval: 10000
+  });
   const substationsQuery = useQuery({ queryKey: ["map", "substations"], queryFn: () => getMapLayer(token, "substations") });
   const segmentsQuery = useQuery({ queryKey: ["map", "segments"], queryFn: () => getMapLayer(token, "segments") });
   const transformersQuery = useQuery({ queryKey: ["map", "transformers"], queryFn: () => getMapLayer(token, "transformers") });
@@ -167,6 +174,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
         <SummaryPanel summary={summaryQuery.data} />
         <FeederPanel feeders={feedersQuery.data ?? []} />
         <FaultPanel faults={activeFaultsQuery.data ?? []} />
+        <IncidentPanel incidents={openIncidentsQuery.data ?? []} />
       </aside>
       <section className="flex min-h-screen flex-col">
         <header className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
@@ -208,6 +216,36 @@ function SummaryPanel({ summary }: { summary?: NetworkSummary }) {
 }
 
 
+
+function IncidentPanel({ incidents }: { incidents: OpenIncident[] }) {
+  return (
+    <section className="mt-6">
+      <div className="flex items-center justify-between gap-2 text-sm font-semibold text-zinc-200">
+        <span className="flex items-center gap-2">
+          <ShieldAlert size={18} className="text-rose-300" />
+          Open incidents
+        </span>
+        <span className="text-xs text-zinc-500">{incidents.length}</span>
+      </div>
+      <div className="mt-3 space-y-2">
+        {incidents.length === 0 ? (
+          <div className="border border-zinc-800 bg-zinc-900 p-3 text-sm text-zinc-400">No open incidents</div>
+        ) : (
+          incidents.map((incident) => (
+            <div className="border border-rose-500/50 bg-rose-950/20 p-3" key={incident.id}>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-rose-100">{incident.incidentNumber}</p>
+                <span className="text-xs text-rose-300">{incident.priority}</span>
+              </div>
+              <p className="mt-1 text-sm text-zinc-300">{incident.title}</p>
+              <p className="mt-1 text-xs text-zinc-500">{incident.status} · opened {new Date(incident.openedAt).toLocaleString()}</p>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
 function FaultPanel({ faults }: { faults: ActiveFault[] }) {
   return (
     <section className="mt-6">
