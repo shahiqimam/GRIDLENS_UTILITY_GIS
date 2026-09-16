@@ -74,6 +74,62 @@ export class DispatchService {
     return this.toWorkOrderView(await this.workOrders.save(workOrder));
   }
 
+
+  async markEnRoute(id: string): Promise<WorkOrderView> {
+    return this.transitionWorkOrder(id, WorkOrderStatus.EnRoute);
+  }
+
+  async markOnSite(id: string): Promise<WorkOrderView> {
+    return this.transitionWorkOrder(id, WorkOrderStatus.OnSite);
+  }
+
+  async completeWorkOrder(id: string): Promise<WorkOrderView> {
+    const workOrder = await this.findWorkOrderOrThrow(id);
+    if (workOrder.status === WorkOrderStatus.Complete) {
+      return this.toWorkOrderView(workOrder);
+    }
+
+    const completedAt = new Date();
+    const updated = await this.workOrders.save({
+      ...workOrder,
+      status: WorkOrderStatus.Complete,
+      completedAt,
+      metadata: this.appendWorkOrderAction(workOrder.metadata, "completed", completedAt)
+    });
+    await this.crews.update({ id: workOrder.crewId }, { status: CrewStatus.Available });
+    return this.toWorkOrderView(updated);
+  }
+
+  private async transitionWorkOrder(id: string, status: WorkOrderStatus): Promise<WorkOrderView> {
+    const workOrder = await this.findWorkOrderOrThrow(id);
+    if (workOrder.status === WorkOrderStatus.Complete || workOrder.status === WorkOrderStatus.Cancelled) {
+      return this.toWorkOrderView(workOrder);
+    }
+
+    const at = new Date();
+    const updated = await this.workOrders.save({
+      ...workOrder,
+      status,
+      metadata: this.appendWorkOrderAction(workOrder.metadata, status.toLowerCase(), at)
+    });
+    return this.toWorkOrderView(updated);
+  }
+
+  private async findWorkOrderOrThrow(id: string): Promise<WorkOrder> {
+    const workOrder = await this.workOrders.findOne({ relations: { crew: true }, where: { id } });
+    if (!workOrder) {
+      throw new NotFoundException("Work order not found");
+    }
+    return workOrder;
+  }
+
+  private appendWorkOrderAction(metadata: Record<string, unknown>, action: string, at: Date): Record<string, unknown> {
+    const existingActions = Array.isArray(metadata.actions) ? metadata.actions : [];
+    return {
+      ...metadata,
+      actions: [...existingActions, { action, at: at.toISOString() }]
+    };
+  }
   private async selectCrew(): Promise<Crew | null> {
     const feederCrew = await this.crews.findOne({
       where: { status: CrewStatus.Available, specialty: CrewSpecialty.Feeder },

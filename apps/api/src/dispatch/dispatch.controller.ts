@@ -28,4 +28,22 @@ export class DispatchController {
   dispatchIncident(@Param("incidentId") incidentId: string): Promise<WorkOrderView> {
     return this.dispatchService.dispatchIncident(incidentId);
   }
+
+  @Post("work-orders/:id/en-route")
+  @ApiOkResponse({ description: "Mark work order en route" })
+  markEnRoute(@Param("id") id: string): Promise<WorkOrderView> {
+    return this.dispatchService.markEnRoute(id);
+  }
+
+  @Post("work-orders/:id/on-site")
+  @ApiOkResponse({ description: "Mark work order on site" })
+  markOnSite(@Param("id") id: string): Promise<WorkOrderView> {
+    return this.dispatchService.markOnSite(id);
+  }
+
+  @Post("work-orders/:id/complete")
+  @ApiOkResponse({ description: "Complete work order" })
+  completeWorkOrder(@Param("id") id: string): Promise<WorkOrderView> {
+    return this.dispatchService.completeWorkOrder(id);
+  }
 }

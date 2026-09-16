@@ -57,15 +57,9 @@ function workOrder(overrides: Record<string, unknown> = {}) {
 
 describe("DispatchService", () => {
   it("lists crews in API shape", async () => {
-    const service = new DispatchService(
-      { find: jest.fn().mockResolvedValue([crew]) } as never,
-      {} as never,
-      {} as never
-    );
+    const service = new DispatchService({ find: jest.fn().mockResolvedValue([crew]) } as never, {} as never, {} as never);
 
-    await expect(service.listCrews()).resolves.toEqual([
-      expect.objectContaining({ code: "CREW-FD-01", currentLatitude: 32.7905 })
-    ]);
+    await expect(service.listCrews()).resolves.toEqual([expect.objectContaining({ code: "CREW-FD-01", currentLatitude: 32.7905 })]);
   });
 
   it("dispatches an incident to an available feeder crew", async () => {
@@ -102,5 +96,49 @@ describe("DispatchService", () => {
     );
 
     await expect(service.dispatchIncident(incident.id)).rejects.toThrow(ConflictException);
+  });
+
+  it("marks a work order en route", async () => {
+    const save = jest.fn(async (value: unknown) => value);
+    const service = new DispatchService(
+      { findOne: jest.fn(), update: jest.fn() } as never,
+      { findOne: jest.fn().mockResolvedValue(workOrder()), save } as never,
+      {} as never
+    );
+
+    const result = await service.markEnRoute("wo-1");
+
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ status: "EN_ROUTE" }));
+    expect(result.status).toBe("EN_ROUTE");
+  });
+
+  it("marks a work order on site", async () => {
+    const save = jest.fn(async (value: unknown) => value);
+    const service = new DispatchService(
+      { findOne: jest.fn(), update: jest.fn() } as never,
+      { findOne: jest.fn().mockResolvedValue(workOrder({ status: WorkOrderStatus.EnRoute })), save } as never,
+      {} as never
+    );
+
+    const result = await service.markOnSite("wo-1");
+
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ status: "ON_SITE" }));
+    expect(result.status).toBe("ON_SITE");
+  });
+
+  it("completes a work order and frees the crew", async () => {
+    const save = jest.fn(async (value: unknown) => value);
+    const update = jest.fn().mockResolvedValue(undefined);
+    const service = new DispatchService(
+      { findOne: jest.fn(), update } as never,
+      { findOne: jest.fn().mockResolvedValue(workOrder({ status: WorkOrderStatus.OnSite })), save } as never,
+      {} as never
+    );
+
+    const result = await service.completeWorkOrder("wo-1");
+
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ status: "COMPLETE", completedAt: expect.any(Date) }));
+    expect(update).toHaveBeenCalledWith({ id: "crew-1" }, { status: "AVAILABLE" });
+    expect(result.status).toBe("COMPLETE");
   });
 });
