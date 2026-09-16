@@ -4,7 +4,7 @@ import { AuthenticatedUser } from "../auth/auth.types";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { IncidentsService } from "./incidents.service";
-import { IncidentView } from "./incidents.types";
+import { IncidentImpactView, IncidentView } from "./incidents.types";
 
 @ApiTags("incidents")
 @ApiBearerAuth()
@@ -19,6 +19,12 @@ export class IncidentsController {
     return this.incidentsService.listOpen();
   }
 
+
+  @Get(":id/impact")
+  @ApiOkResponse({ description: "Incident downstream outage impact" })
+  getImpact(@Param("id") id: string): Promise<IncidentImpactView> {
+    return this.incidentsService.getImpact(id);
+  }
   @Post(":id/acknowledge")
   @ApiOkResponse({ description: "Acknowledged incident" })
   acknowledge(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser): Promise<IncidentView> {

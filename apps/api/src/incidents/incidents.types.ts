@@ -18,3 +18,20 @@ export type IncidentActionActor = {
   email: string;
   role: string;
 };
+export type IncidentImpactView = {
+  incidentId: string;
+  incidentNumber: string;
+  feederId: string | null;
+  affected: {
+    nodes: number;
+    segments: number;
+    transformers: number;
+    serviceAreas: number;
+    estimatedCustomers: number;
+  };
+  nodeIds: string[];
+  segmentIds: string[];
+  transformerIds: string[];
+  serviceAreaIds: string[];
+  stoppedAtOpenSwitchNodeIds: string[];
+};

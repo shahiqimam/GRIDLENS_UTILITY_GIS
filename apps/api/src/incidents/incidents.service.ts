@@ -1,15 +1,19 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Not, Repository } from "typeorm";
+import { NetworkService } from "../network/network.service";
 import { DetectedFault } from "../rules/detected-fault.entity";
 import { DetectedFaultSeverity } from "../rules/rules.enums";
 import { Incident } from "./incident.entity";
 import { IncidentPriority, IncidentSource, IncidentStatus } from "./incidents.enums";
-import { IncidentActionActor, IncidentView } from "./incidents.types";
+import { IncidentActionActor, IncidentImpactView, IncidentView } from "./incidents.types";
 
 @Injectable()
 export class IncidentsService {
-  constructor(@InjectRepository(Incident) private readonly incidents: Repository<Incident>) {}
+  constructor(
+    @InjectRepository(Incident) private readonly incidents: Repository<Incident>,
+    private readonly networkService: NetworkService
+  ) {}
 
   async listOpen(): Promise<IncidentView[]> {
     const incidents = await this.incidents.find({
@@ -58,6 +62,36 @@ export class IncidentsService {
   }
 
 
+
+  async getImpact(id: string): Promise<IncidentImpactView> {
+    const incident = await this.findByIdOrThrow(id);
+    if (!incident.feederId) {
+      return {
+        incidentId: incident.id,
+        incidentNumber: incident.incidentNumber,
+        feederId: null,
+        affected: { nodes: 0, segments: 0, transformers: 0, serviceAreas: 0, estimatedCustomers: 0 },
+        nodeIds: [],
+        segmentIds: [],
+        transformerIds: [],
+        serviceAreaIds: [],
+        stoppedAtOpenSwitchNodeIds: []
+      };
+    }
+
+    const trace = await this.networkService.traceFeeder(incident.feederId);
+    return {
+      incidentId: incident.id,
+      incidentNumber: incident.incidentNumber,
+      feederId: incident.feederId,
+      affected: trace.affected,
+      nodeIds: trace.nodeIds,
+      segmentIds: trace.segmentIds,
+      transformerIds: trace.transformerIds,
+      serviceAreaIds: trace.serviceAreaIds,
+      stoppedAtOpenSwitchNodeIds: trace.stoppedAtOpenSwitchNodeIds
+    };
+  }
   async acknowledge(id: string, actor: IncidentActionActor): Promise<IncidentView> {
     const incident = await this.findByIdOrThrow(id);
     if (incident.status === IncidentStatus.Resolved) {
