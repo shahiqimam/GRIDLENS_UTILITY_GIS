@@ -46,6 +46,12 @@ type Session = {
 
 const mapStyleUrl = process.env.NEXT_PUBLIC_MAP_STYLE_URL ?? "https://demotiles.maplibre.org/style.json";
 
+
+type ImpactedMapIds = {
+  segmentIds: Set<string>;
+  serviceAreaIds: Set<string>;
+  transformerIds: Set<string>;
+};
 type LoginFeature = {
   icon: LucideIcon;
   label: string;
@@ -203,6 +209,14 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
     }),
     [serviceAreasQuery.data, segmentsQuery.data, substationsQuery.data, transformersQuery.data]
   );
+  const impactedMapIds = useMemo<ImpactedMapIds>(() => {
+    const impacts = [...(incidentImpactsQuery.data?.values() ?? [])];
+    return {
+      segmentIds: new Set(impacts.flatMap((impact) => impact.segmentIds)),
+      serviceAreaIds: new Set(impacts.flatMap((impact) => impact.serviceAreaIds)),
+      transformerIds: new Set(impacts.flatMap((impact) => impact.transformerIds))
+    };
+  }, [incidentImpactsQuery.data]);
 
   return (
     <section className="grid min-h-screen grid-cols-1 lg:grid-cols-[360px_1fr]">
@@ -241,7 +255,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
             Live synthetic layers
           </div>
         </header>
-        <GridMap layers={layers} />
+        <GridMap impactedIds={impactedMapIds} layers={layers} />
       </section>
     </section>
   );
@@ -451,7 +465,7 @@ function FeederPanel({ feeders }: { feeders: FeederOverview[] }) {
   );
 }
 
-function GridMap({ layers }: { layers: Record<string, GeoJsonFeatureCollection | undefined> }) {
+function GridMap({ impactedIds, layers }: { impactedIds: ImpactedMapIds; layers: Record<string, GeoJsonFeatureCollection | undefined> }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
 
@@ -486,6 +500,9 @@ function GridMap({ layers }: { layers: Record<string, GeoJsonFeatureCollection |
       addOrUpdateSource(targetMap, "segments", layers.segments);
       addOrUpdateSource(targetMap, "transformers", layers.transformers);
       addOrUpdateSource(targetMap, "substations", layers.substations);
+      addOrUpdateSource(targetMap, "impactedServiceAreas", filterFeatureCollection(layers.serviceAreas, impactedIds.serviceAreaIds));
+      addOrUpdateSource(targetMap, "impactedSegments", filterFeatureCollection(layers.segments, impactedIds.segmentIds));
+      addOrUpdateSource(targetMap, "impactedTransformers", filterFeatureCollection(layers.transformers, impactedIds.transformerIds));
 
       if (!targetMap.getLayer("serviceAreas-fill")) {
         targetMap.addLayer({
@@ -493,6 +510,14 @@ function GridMap({ layers }: { layers: Record<string, GeoJsonFeatureCollection |
           type: "fill",
           source: "serviceAreas",
           paint: { "fill-color": "#22c55e", "fill-opacity": 0.22 }
+        });
+      }
+      if (!targetMap.getLayer("impactedServiceAreas-fill")) {
+        targetMap.addLayer({
+          id: "impactedServiceAreas-fill",
+          type: "fill",
+          source: "impactedServiceAreas",
+          paint: { "fill-color": "#fb7185", "fill-opacity": 0.42 }
         });
       }
       if (!targetMap.getLayer("segments-line")) {
@@ -503,12 +528,28 @@ function GridMap({ layers }: { layers: Record<string, GeoJsonFeatureCollection |
           paint: { "line-color": "#facc15", "line-width": 4 }
         });
       }
+      if (!targetMap.getLayer("impactedSegments-line")) {
+        targetMap.addLayer({
+          id: "impactedSegments-line",
+          type: "line",
+          source: "impactedSegments",
+          paint: { "line-color": "#fb7185", "line-width": 7, "line-opacity": 0.9 }
+        });
+      }
       if (!targetMap.getLayer("transformers-circle")) {
         targetMap.addLayer({
           id: "transformers-circle",
           type: "circle",
           source: "transformers",
           paint: { "circle-color": "#38bdf8", "circle-radius": 7, "circle-stroke-color": "#082f49", "circle-stroke-width": 2 }
+        });
+      }
+      if (!targetMap.getLayer("impactedTransformers-circle")) {
+        targetMap.addLayer({
+          id: "impactedTransformers-circle",
+          type: "circle",
+          source: "impactedTransformers",
+          paint: { "circle-color": "#fb7185", "circle-radius": 10, "circle-stroke-color": "#4c0519", "circle-stroke-width": 3 }
         });
       }
       if (!targetMap.getLayer("substations-circle")) {
@@ -526,7 +567,7 @@ function GridMap({ layers }: { layers: Record<string, GeoJsonFeatureCollection |
     } else {
       map.once("load", () => applyLayers(map));
     }
-  }, [layers]);
+  }, [impactedIds, layers]);
 
   return (
     <div className="relative min-h-0 flex-1">
@@ -541,6 +582,16 @@ function GridMap({ layers }: { layers: Record<string, GeoJsonFeatureCollection |
   );
 }
 
+function filterFeatureCollection(data: GeoJsonFeatureCollection | undefined, ids: Set<string>): GeoJsonFeatureCollection {
+  if (!data || ids.size === 0) {
+    return { type: "FeatureCollection", features: [] };
+  }
+
+  return {
+    type: "FeatureCollection",
+    features: data.features.filter((feature) => typeof feature.id === "string" && ids.has(feature.id))
+  };
+}
 function addOrUpdateSource(map: MapLibreMap, id: string, data?: GeoJsonFeatureCollection) {
   const empty: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
   const source = map.getSource(id) as maplibregl.GeoJSONSource | undefined;
