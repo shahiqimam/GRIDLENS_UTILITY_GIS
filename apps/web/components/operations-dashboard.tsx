@@ -3,15 +3,17 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, Layers, LogIn, MapPinned, RadioTower, UsersRound, Zap, type LucideIcon } from "lucide-react";
+import { Activity, AlertTriangle, Layers, LogIn, MapPinned, RadioTower, UsersRound, Zap, type LucideIcon } from "lucide-react";
 import maplibregl, { Map as MapLibreMap } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import {
+  ActiveFault,
   FeederOverview,
   GeoJsonFeatureCollection,
   NetworkSummary,
+  getActiveFaults,
   getFeeders,
   getMapLayer,
   getNetworkSummary,
@@ -130,6 +132,11 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
   const token = session.accessToken;
   const summaryQuery = useQuery({ queryKey: ["network-summary"], queryFn: () => getNetworkSummary(token) });
   const feedersQuery = useQuery({ queryKey: ["feeders"], queryFn: () => getFeeders(token) });
+  const activeFaultsQuery = useQuery({
+    queryKey: ["active-faults"],
+    queryFn: () => getActiveFaults(token),
+    refetchInterval: 10000
+  });
   const substationsQuery = useQuery({ queryKey: ["map", "substations"], queryFn: () => getMapLayer(token, "substations") });
   const segmentsQuery = useQuery({ queryKey: ["map", "segments"], queryFn: () => getMapLayer(token, "segments") });
   const transformersQuery = useQuery({ queryKey: ["map", "transformers"], queryFn: () => getMapLayer(token, "transformers") });
@@ -159,6 +166,7 @@ function Dashboard({ session, onLogout }: { session: Session; onLogout: () => vo
         </div>
         <SummaryPanel summary={summaryQuery.data} />
         <FeederPanel feeders={feedersQuery.data ?? []} />
+        <FaultPanel faults={activeFaultsQuery.data ?? []} />
       </aside>
       <section className="flex min-h-screen flex-col">
         <header className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
@@ -199,6 +207,36 @@ function SummaryPanel({ summary }: { summary?: NetworkSummary }) {
   );
 }
 
+
+function FaultPanel({ faults }: { faults: ActiveFault[] }) {
+  return (
+    <section className="mt-6">
+      <div className="flex items-center justify-between gap-2 text-sm font-semibold text-zinc-200">
+        <span className="flex items-center gap-2">
+          <AlertTriangle size={18} className="text-amber-300" />
+          Active faults
+        </span>
+        <span className="text-xs text-zinc-500">{faults.length}</span>
+      </div>
+      <div className="mt-3 space-y-2">
+        {faults.length === 0 ? (
+          <div className="border border-zinc-800 bg-zinc-900 p-3 text-sm text-zinc-400">No active faults detected</div>
+        ) : (
+          faults.map((fault) => (
+            <div className="border border-amber-500/50 bg-amber-950/20 p-3" key={fault.id}>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-amber-100">{fault.faultType.replaceAll("_", " ")}</p>
+                <span className="text-xs text-amber-300">{fault.severity}</span>
+              </div>
+              <p className="mt-1 break-all text-xs text-zinc-500">{fault.assetType}: {fault.assetId}</p>
+              <p className="mt-3 text-xs text-zinc-400">Last detected {new Date(fault.lastDetectedAt).toLocaleString()}</p>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
 function FeederPanel({ feeders }: { feeders: FeederOverview[] }) {
   return (
     <section className="mt-6">

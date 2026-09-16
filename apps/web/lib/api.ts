@@ -30,6 +30,19 @@ export type FeederOverview = {
 };
 
 export type GeoJsonFeatureCollection = GeoJSON.FeatureCollection<GeoJSON.Geometry, Record<string, unknown>>;
+export type ActiveFault = {
+  id: string;
+  fingerprint: string;
+  faultType: string;
+  assetType: string;
+  assetId: string;
+  feederId: string | null;
+  severity: string;
+  status: string;
+  firstDetectedAt: string;
+  lastDetectedAt: string;
+  evidence: Record<string, unknown>;
+};
 
 async function request<T>(path: string, token?: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
@@ -67,4 +80,7 @@ export function getFeeders(token: string): Promise<FeederOverview[]> {
 export function getMapLayer(token: string, layer: "substations" | "segments" | "transformers" | "service-areas"): Promise<GeoJsonFeatureCollection> {
   const viewport = "west=-97&south=32&east=-96&north=33&limit=1000";
   return request<GeoJsonFeatureCollection>(`/map/${layer}?${viewport}`, token);
+}
+export function getActiveFaults(token: string): Promise<ActiveFault[]> {
+  return request<ActiveFault[]>("/rules/faults/active", token);
 }

@@ -7,7 +7,7 @@ import { TelemetryAssetType, TelemetryMetric } from "../telemetry/telemetry.enum
 import { DetectedFault } from "./detected-fault.entity";
 import { FaultRuleConfig } from "./fault-rule-config.entity";
 import { DetectedFaultSeverity, DetectedFaultStatus, FaultRuleType } from "./rules.enums";
-import { FaultEvaluationResult, FaultRuleConfigView } from "./rules.types";
+import { DetectedFaultView, FaultEvaluationResult, FaultRuleConfigView } from "./rules.types";
 
 @Injectable()
 export class RulesService {
@@ -31,6 +31,28 @@ export class RulesService {
     }));
   }
 
+
+  async listActiveFaults(): Promise<DetectedFaultView[]> {
+    const faults = await this.detectedFaults.find({
+      where: { status: DetectedFaultStatus.Active },
+      order: { lastDetectedAt: "DESC" },
+      take: 50
+    });
+
+    return faults.map((fault) => ({
+      id: fault.id,
+      fingerprint: fault.fingerprint,
+      faultType: fault.faultType,
+      assetType: fault.assetType,
+      assetId: fault.assetId,
+      feederId: fault.feederId,
+      severity: fault.severity,
+      status: fault.status,
+      firstDetectedAt: fault.firstDetectedAt.toISOString(),
+      lastDetectedAt: fault.lastDetectedAt.toISOString(),
+      evidence: fault.evidence
+    }));
+  }
   async evaluateTelemetry(device: TelemetryDevice, recordedAt: Date): Promise<FaultEvaluationResult> {
     if (device.assetType !== TelemetryAssetType.Feeder) {
       return { faultDetected: false };
