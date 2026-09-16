@@ -1,11 +1,11 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Not, Repository } from "typeorm";
 import { DetectedFault } from "../rules/detected-fault.entity";
 import { DetectedFaultSeverity } from "../rules/rules.enums";
 import { Incident } from "./incident.entity";
 import { IncidentPriority, IncidentSource, IncidentStatus } from "./incidents.enums";
-import { IncidentView } from "./incidents.types";
+import { IncidentActionActor, IncidentView } from "./incidents.types";
 
 @Injectable()
 export class IncidentsService {
@@ -57,6 +57,67 @@ export class IncidentsService {
     return this.toView(await this.incidents.save(incident));
   }
 
+
+  async acknowledge(id: string, actor: IncidentActionActor): Promise<IncidentView> {
+    const incident = await this.findByIdOrThrow(id);
+    if (incident.status === IncidentStatus.Resolved) {
+      return this.toView(incident);
+    }
+
+    const acknowledgedAt = incident.acknowledgedAt ?? new Date();
+    const updated = await this.incidents.save({
+      ...incident,
+      status: IncidentStatus.Acknowledged,
+      acknowledgedAt,
+      metadata: this.appendAction(incident.metadata, "acknowledged", acknowledgedAt, actor)
+    });
+
+    return this.toView(updated);
+  }
+
+  async resolve(id: string, actor: IncidentActionActor): Promise<IncidentView> {
+    const incident = await this.findByIdOrThrow(id);
+    if (incident.status === IncidentStatus.Resolved) {
+      return this.toView(incident);
+    }
+
+    const resolvedAt = new Date();
+    const acknowledgedAt = incident.acknowledgedAt ?? resolvedAt;
+    const updated = await this.incidents.save({
+      ...incident,
+      status: IncidentStatus.Resolved,
+      acknowledgedAt,
+      resolvedAt,
+      metadata: this.appendAction(incident.metadata, "resolved", resolvedAt, actor)
+    });
+
+    return this.toView(updated);
+  }
+
+  private async findByIdOrThrow(id: string): Promise<Incident> {
+    const incident = await this.incidents.findOne({ where: { id } });
+    if (!incident) {
+      throw new NotFoundException("Incident not found");
+    }
+    return incident;
+  }
+
+  private appendAction(metadata: Record<string, unknown>, action: string, at: Date, actor: IncidentActionActor): Record<string, unknown> {
+    const existingActions = Array.isArray(metadata.actions) ? metadata.actions : [];
+    return {
+      ...metadata,
+      actions: [
+        ...existingActions,
+        {
+          action,
+          at: at.toISOString(),
+          userId: actor.id,
+          email: actor.email,
+          role: actor.role
+        }
+      ]
+    };
+  }
   private createIncidentNumber(fault: DetectedFault): string {
     const date = fault.firstDetectedAt.toISOString().slice(0, 10).replaceAll("-", "");
     return `GL-${date}-${fault.id.slice(0, 8).toUpperCase()}`;

@@ -13,3 +13,8 @@ export type IncidentView = {
   resolvedAt: string | null;
   metadata: Record<string, unknown>;
 };
+export type IncidentActionActor = {
+  id: string;
+  email: string;
+  role: string;
+};

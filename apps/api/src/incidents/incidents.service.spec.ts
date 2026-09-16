@@ -4,6 +4,7 @@ import { IncidentSource, IncidentStatus } from "./incidents.enums";
 import { IncidentsService } from "./incidents.service";
 
 const openedAt = new Date("2026-09-16T12:13:00.000Z");
+const actor = { id: "user-1", email: "operations@gridlens.local", role: "OPERATOR" };
 
 const fault = {
   id: "fault-1abcd000-0000-4000-8000-000000000001",
@@ -85,6 +86,58 @@ describe("IncidentsService", () => {
     } as never);
 
     await expect(service.openForFault(fault as never)).resolves.toEqual(expect.objectContaining({ id: "incident-1" }));
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("acknowledges an open incident and records the actor", async () => {
+    const save = jest.fn(async (incident: unknown) => incident);
+    const service = new IncidentsService({
+      findOne: jest.fn().mockResolvedValue(makeIncident()),
+      save
+    } as never);
+
+    const result = await service.acknowledge("incident-1", actor);
+
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({
+      status: "ACKNOWLEDGED",
+      acknowledgedAt: expect.any(Date),
+      metadata: expect.objectContaining({
+        actions: [expect.objectContaining({ action: "acknowledged", email: "operations@gridlens.local" })]
+      })
+    }));
+    expect(result.status).toBe("ACKNOWLEDGED");
+    expect(result.acknowledgedAt).not.toBeNull();
+  });
+
+  it("resolves an open incident and implicitly acknowledges it", async () => {
+    const save = jest.fn(async (incident: unknown) => incident);
+    const service = new IncidentsService({
+      findOne: jest.fn().mockResolvedValue(makeIncident()),
+      save
+    } as never);
+
+    const result = await service.resolve("incident-1", actor);
+
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({
+      status: "RESOLVED",
+      acknowledgedAt: expect.any(Date),
+      resolvedAt: expect.any(Date),
+      metadata: expect.objectContaining({
+        actions: [expect.objectContaining({ action: "resolved", userId: "user-1" })]
+      })
+    }));
+    expect(result.status).toBe("RESOLVED");
+    expect(result.resolvedAt).not.toBeNull();
+  });
+
+  it("returns a resolved incident without writing another action", async () => {
+    const save = jest.fn();
+    const service = new IncidentsService({
+      findOne: jest.fn().mockResolvedValue(makeIncident({ status: IncidentStatus.Resolved, resolvedAt: openedAt })),
+      save
+    } as never);
+
+    await expect(service.acknowledge("incident-1", actor)).resolves.toEqual(expect.objectContaining({ status: "RESOLVED" }));
     expect(save).not.toHaveBeenCalled();
   });
 });
